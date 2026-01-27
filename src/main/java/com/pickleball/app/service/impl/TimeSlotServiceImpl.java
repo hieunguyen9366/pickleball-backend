@@ -63,6 +63,7 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         }
 
         // Xóa các slots cũ nếu có (để tạo lại)
+        // Lưu ý: Chỉ nên gọi khi chắc chắn không có booking
         timeSlotRepository.deleteByCourt_CourtIdAndSlotDate(courtId, date);
 
         List<TimeSlot> slots = new ArrayList<>();
@@ -181,6 +182,29 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     @Transactional
     public void deleteTimeSlotsForDate(Long courtId, LocalDate date) {
         timeSlotRepository.deleteByCourt_CourtIdAndSlotDate(courtId, date);
+    }
+
+    @Override
+    @Transactional
+    public void regenerateTimeSlots(Long courtId, int daysToCheck) {
+        LocalDate today = LocalDate.now();
+
+        // Regenerate slots starting from tomorrow (assuming today's slots might be in
+        // use or past)
+        // Or regenerate today as well if needed? Let's start from today + 1 for safety
+        // Edit: Request was "future". Starting from tomorrow is safer.
+        for (int i = 1; i <= daysToCheck; i++) {
+            LocalDate date = today.plusDays(i);
+
+            // Check if there are any bookings for this date
+            if (timeSlotRepository.existsByCourt_CourtIdAndSlotDateAndBookingIsNotNull(courtId, date)) {
+                // Skip regeneration for this date
+                continue;
+            }
+
+            // Regenerate slots (0,0,0 means fetch config from DB)
+            generateTimeSlotsForDate(courtId, date, 0, 0, 0);
+        }
     }
 
     private List<TimeSlotDTO> mapToDTO(List<TimeSlot> slots) {

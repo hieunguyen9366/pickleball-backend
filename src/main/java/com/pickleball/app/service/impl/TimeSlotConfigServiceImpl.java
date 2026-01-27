@@ -9,6 +9,7 @@ import com.pickleball.app.repository.CourtRepository;
 import com.pickleball.app.repository.CourtGroupRepository;
 import com.pickleball.app.repository.TimeSlotConfigRepository;
 import com.pickleball.app.service.TimeSlotConfigService;
+import com.pickleball.app.service.TimeSlotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class TimeSlotConfigServiceImpl implements TimeSlotConfigService {
     private final TimeSlotConfigRepository configRepository;
     private final CourtRepository courtRepository;
     private final CourtGroupRepository courtGroupRepository;
+    private final TimeSlotService timeSlotService;
 
     @Override
     public List<TimeSlotConfigDTO> getConfigs(Long courtId, Long courtGroupId) {
@@ -76,7 +78,12 @@ public class TimeSlotConfigServiceImpl implements TimeSlotConfigService {
             throw new RuntimeException("Either courtId or courtGroupId must be provided");
         }
 
-        return mapToDTO(configRepository.save(config));
+        TimeSlotConfig savedConfig = configRepository.save(config);
+
+        // Regenerate slots based on new config
+        triggerRegeneration(savedConfig);
+
+        return mapToDTO(savedConfig);
     }
 
     @Override
@@ -93,7 +100,12 @@ public class TimeSlotConfigServiceImpl implements TimeSlotConfigService {
         config.setSlotDuration(request.getSlotDuration());
         config.setIsActive(request.getIsActive());
 
-        return mapToDTO(configRepository.save(config));
+        TimeSlotConfig savedConfig = configRepository.save(config);
+
+        // Regenerate slots based on updated config
+        triggerRegeneration(savedConfig);
+
+        return mapToDTO(savedConfig);
     }
 
     @Override
@@ -147,6 +159,19 @@ public class TimeSlotConfigServiceImpl implements TimeSlotConfigService {
 
         if (request.getCourtId() == null && request.getCourtGroupId() == null) {
             throw new RuntimeException("Either courtId or courtGroupId must be provided");
+        }
+    }
+
+    private void triggerRegeneration(TimeSlotConfig config) {
+        int daysToCheck = 30; // Check and regenerate for next 30 days
+
+        if (config.getCourt() != null) {
+            timeSlotService.regenerateTimeSlots(config.getCourt().getCourtId(), daysToCheck);
+        } else if (config.getCourtGroup() != null) {
+            List<Court> courts = courtRepository.findByCourtGroup(config.getCourtGroup());
+            for (Court court : courts) {
+                timeSlotService.regenerateTimeSlots(court.getCourtId(), daysToCheck);
+            }
         }
     }
 

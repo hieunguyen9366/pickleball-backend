@@ -9,16 +9,17 @@ import java.util.List;
 public interface TimeSlotService {
     /**
      * Tạo time slots cho một sân trong một ngày
-     * @param courtId ID của sân
-     * @param date Ngày cần tạo slots
-     * @param startHour Giờ bắt đầu (VD: 5)
-     * @param endHour Giờ kết thúc (VD: 22)
+     * 
+     * @param courtId             ID của sân
+     * @param date                Ngày cần tạo slots
+     * @param startHour           Giờ bắt đầu (VD: 5)
+     * @param endHour             Giờ kết thúc (VD: 22)
      * @param slotDurationMinutes Độ dài mỗi slot (phút): 30 hoặc 60
      * @return Danh sách time slots đã tạo
      */
-    List<TimeSlot> generateTimeSlotsForDate(Long courtId, LocalDate date, 
-                                            int startHour, int endHour, 
-                                            int slotDurationMinutes);
+    List<TimeSlot> generateTimeSlotsForDate(Long courtId, LocalDate date,
+            int startHour, int endHour,
+            int slotDurationMinutes);
 
     /**
      * Lấy danh sách time slots của một sân trong một ngày
@@ -59,7 +60,9 @@ public interface TimeSlotService {
      * Xóa tất cả time slots của một sân trong một ngày
      */
     void deleteTimeSlotsForDate(Long courtId, LocalDate date);
+
+    /**
+     * Regenerate time slots for future days (if no bookings exist)
+     */
+    void regenerateTimeSlots(Long courtId, int daysToCheck);
 }
-
-
-
