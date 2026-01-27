@@ -103,8 +103,6 @@ brew services start mariadb
 
 ```bash
 git clone <repository-url>
-cd mantis-free-angular-admin-template
-cd backend
 ```
 
 ### 3.2. Kiểm tra cấu trúc project
@@ -118,55 +116,14 @@ backend/
 │   │   └── resources/
 │   │       └── application.properties
 │   └── test/
-├── migrations/
-│   ├── 002_add_time_slot_locks.sql
-│   └── 003_add_time_slot_configs.sql
 └── pom.xml
 ```
 
 ---
 
-## 4. CẤU HÌNH DATABASE
+## 4. CẤU HÌNH APPLICATION
 
-### 4.1. Tạo database
-
-Đăng nhập vào MariaDB/MySQL:
-
-```bash
-mysql -u root -p
-```
-
-Tạo database mới:
-
-```sql
-CREATE DATABASE pickleball_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE pickleball_db;
-```
-
-### 4.2. Chạy migration scripts
-
-Chạy các script migration theo thứ tự:
-
-```bash
-# Từ thư mục backend/migrations
-mysql -u root -p pickleball_db < 002_add_time_slot_locks.sql
-mysql -u root -p pickleball_db < 003_add_time_slot_configs.sql
-```
-
-**Lưu ý:** Nếu database đã có sẵn dữ liệu từ `DataInitializer`, các migration scripts sẽ tự động bỏ qua nếu bảng đã tồn tại (sử dụng `CREATE TABLE IF NOT EXISTS`).
-
-### 4.3. Kiểm tra database
-
-```sql
-SHOW TABLES;
--- Phải thấy các bảng: users, courts, court_groups, time_slots, time_slot_locks, time_slot_configs, bookings, payments, ...
-```
-
----
-
-## 5. CẤU HÌNH APPLICATION
-
-### 5.1. Cấu hình Database Connection
+### 4.1. Cấu hình Database Connection
 
 Mở file `backend/src/main/resources/application.properties` và cập nhật:
 
@@ -188,7 +145,7 @@ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MariaDBDialect
 - Nếu database ở server khác, thay `localhost` bằng IP/hostname
 - Nếu port khác 3306, cập nhật trong URL
 
-### 5.2. Cấu hình JWT Secret
+### 4.2. Cấu hình JWT Secret
 
 ```properties
 # JWT Secret (Nên dùng biến môi trường trong production)
@@ -198,7 +155,7 @@ app.jwt.expiration=86400000  # 24 giờ (milliseconds)
 
 **Lưu ý:** Trong production, nên sử dụng biến môi trường thay vì hardcode secret key.
 
-### 5.3. Cấu hình Email (Optional)
+### 4.3. Cấu hình Email (Optional)
 
 Nếu cần gửi email (verification, password reset):
 
@@ -217,7 +174,7 @@ spring.mail.properties.mail.smtp.starttls.required=true
 - Với Gmail, cần tạo [App Password](https://support.google.com/accounts/answer/185833)
 - Có thể bỏ qua nếu không cần gửi email (sẽ không ảnh hưởng đến các chức năng khác)
 
-### 5.4. Cấu hình Frontend URL
+### 4.4. Cấu hình Frontend URL
 
 ```properties
 # Frontend URL (for email links)
@@ -226,7 +183,7 @@ app.frontend.url=http://localhost:4200
 
 Cập nhật nếu frontend chạy ở URL khác.
 
-### 5.5. Cấu hình Port
+### 4.5. Cấu hình Port
 
 ```properties
 server.port=8080
@@ -235,7 +192,31 @@ server.port=8080
 Thay đổi nếu port 8080 đã được sử dụng.
 
 ---
+## 5. CẤU HÌNH DATABASE
 
+### 5.1. Tạo database
+
+Đăng nhập vào MariaDB/MySQL:
+
+```bash
+mysql -u root -p
+```
+
+Tạo database mới:
+
+```sql
+CREATE DATABASE pickleball_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE pickleball_db;
+```
+
+### 5.2. Kiểm tra database
+
+```sql
+SHOW TABLES;
+-- Phải thấy các bảng: users, courts, court_groups, time_slots, time_slot_locks, time_slot_configs, bookings, payments, ...
+```
+
+---
 ## 6. BUILD VÀ CHẠY PROJECT
 
 ### 6.1. Build project với Maven
