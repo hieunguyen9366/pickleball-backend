@@ -24,7 +24,10 @@ public class CourtDetailDTO {
     private String district;
     private String city;
     private String description;
-    private String images;
+    private String images; // Legacy images
+    // Image IDs for this court and its group
+    private java.util.List<Long> courtImageIds;
+    private java.util.List<Long> courtGroupImageIds;
     // Add reviews, ratings if needed
 }
 

@@ -3,6 +3,7 @@ package com.pickleball.app.service;
 import com.pickleball.app.dto.court.CourtDTO;
 import com.pickleball.app.dto.court.CourtDetailDTO;
 import com.pickleball.app.dto.court.CourtGroupDTO;
+import com.pickleball.app.dto.court.ImageDTO;
 import com.pickleball.app.dto.court.TimeSlotDTO;
 
 import java.util.List;
@@ -46,4 +47,17 @@ public interface CourtService {
     // Get districts and cities
     List<String> getDistricts();
     List<String> getCities();
+
+    // Images for court groups and courts
+    java.util.List<Long> uploadCourtGroupImage(Long courtGroupId, org.springframework.web.multipart.MultipartFile file);
+
+    java.util.List<Long> uploadCourtImage(Long courtId, org.springframework.web.multipart.MultipartFile file);
+
+    java.util.List<ImageDTO> getCourtGroupImages(Long courtGroupId);
+
+    java.util.List<ImageDTO> getCourtImages(Long courtId);
+
+    ImageDTO getCourtGroupImageById(Long imageId);
+
+    ImageDTO getCourtImageById(Long imageId);
 }

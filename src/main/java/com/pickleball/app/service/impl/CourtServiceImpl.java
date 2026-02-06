@@ -2,11 +2,16 @@ package com.pickleball.app.service.impl;
 
 import com.pickleball.app.dto.court.CourtDTO;
 import com.pickleball.app.dto.court.CourtGroupDTO;
+import com.pickleball.app.dto.court.ImageDTO;
 import com.pickleball.app.dto.court.TimeSlotDTO;
 import com.pickleball.app.entity.Court;
 import com.pickleball.app.entity.CourtGroup;
+import com.pickleball.app.entity.CourtGroupImage;
+import com.pickleball.app.entity.CourtImage;
 import com.pickleball.app.entity.User;
+import com.pickleball.app.repository.CourtGroupImageRepository;
 import com.pickleball.app.repository.CourtGroupRepository;
+import com.pickleball.app.repository.CourtImageRepository;
 import com.pickleball.app.repository.CourtRepository;
 import com.pickleball.app.repository.TimeSlotRepository;
 import com.pickleball.app.repository.UserRepository;
@@ -16,6 +21,7 @@ import com.pickleball.app.service.CourtService;
 import com.pickleball.app.service.TimeSlotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -30,6 +36,8 @@ public class CourtServiceImpl implements CourtService {
     private final CourtGroupRepository countGroupRepository;
     private final CourtRepository courtRepository;
     private final UserRepository userRepository;
+    private final CourtGroupImageRepository courtGroupImageRepository;
+    private final CourtImageRepository courtImageRepository;
     private final TimeSlotService timeSlotService;
     private final TimeSlotRepository timeSlotRepository;
     private final ServiceRepository serviceRepository;
@@ -659,7 +667,18 @@ public class CourtServiceImpl implements CourtService {
     public com.pickleball.app.dto.court.CourtDetailDTO getCourtDetailById(Long id) {
         Court court = courtRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Court not found"));
-        
+
+        // Load image IDs for court and court group
+        List<Long> courtImageIds = courtImageRepository
+                .findByCourtOrderBySortOrderAscImageIdAsc(court).stream()
+                .map(CourtImage::getImageId)
+                .collect(Collectors.toList());
+
+        List<Long> courtGroupImageIds = courtGroupImageRepository
+                .findByCourtGroupOrderBySortOrderAscImageIdAsc(court.getCourtGroup()).stream()
+                .map(CourtGroupImage::getImageId)
+                .collect(Collectors.toList());
+
         return com.pickleball.app.dto.court.CourtDetailDTO.builder()
                 .courtId(court.getCourtId())
                 .courtGroupId(court.getCourtGroup().getCourtGroupId())
@@ -672,6 +691,8 @@ public class CourtServiceImpl implements CourtService {
                 .city(court.getCourtGroup().getCity())
                 .description(court.getCourtGroup().getDescription())
                 .images(court.getCourtGroup().getImages())
+                .courtImageIds(courtImageIds)
+                .courtGroupImageIds(courtGroupImageIds)
                 .build();
     }
 
@@ -719,6 +740,12 @@ public class CourtServiceImpl implements CourtService {
         dto.setCity(entity.getCity());
         dto.setDescription(entity.getDescription());
         dto.setImages(entity.getImages());
+        // Map image IDs from court_group_images table
+        List<Long> imageIds = courtGroupImageRepository
+                .findByCourtGroupOrderBySortOrderAscImageIdAsc(entity).stream()
+                .map(CourtGroupImage::getImageId)
+                .collect(Collectors.toList());
+        dto.setImageIds(imageIds);
         if (entity.getManager() != null) {
             dto.setManagerId(entity.getManager().getUserId());
         }
@@ -743,6 +770,19 @@ public class CourtServiceImpl implements CourtService {
         dto.setAddress(courtGroup.getAddress()); // Location/address
         dto.setDescription(courtGroup.getDescription());
         dto.setImages(courtGroup.getImages()); // Images (JSON string or comma-separated)
+
+        // Image IDs
+        List<Long> courtImageIds = courtImageRepository
+                .findByCourtOrderBySortOrderAscImageIdAsc(entity).stream()
+                .map(CourtImage::getImageId)
+                .collect(Collectors.toList());
+        dto.setCourtImageIds(courtImageIds);
+
+        List<Long> courtGroupImageIds = courtGroupImageRepository
+                .findByCourtGroupOrderBySortOrderAscImageIdAsc(courtGroup).stream()
+                .map(CourtGroupImage::getImageId)
+                .collect(Collectors.toList());
+        dto.setCourtGroupImageIds(courtGroupImageIds);
         
         // Phone from manager if available
         if (courtGroup.getManager() != null && courtGroup.getManager().getPhoneNumber() != null) {
@@ -821,6 +861,131 @@ public class CourtServiceImpl implements CourtService {
                 .distinct()
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    // --- Images ---
+
+    @Override
+    public List<Long> uploadCourtGroupImage(Long courtGroupId, MultipartFile file) {
+        CourtGroup group = countGroupRepository.findById(courtGroupId)
+                .orElseThrow(() -> new RuntimeException("Court Group not found"));
+
+        try {
+            // Determine next sort order
+            List<CourtGroupImage> existing = courtGroupImageRepository
+                    .findByCourtGroupOrderBySortOrderAscImageIdAsc(group);
+            int nextSortOrder = existing.isEmpty()
+                    ? 0
+                    : (existing.get(existing.size() - 1).getSortOrder() != null
+                            ? existing.get(existing.size() - 1).getSortOrder() + 1
+                            : existing.size());
+
+            CourtGroupImage image = CourtGroupImage.builder()
+                    .courtGroup(group)
+                    .imageData(file.getBytes())
+                    .contentType(file.getContentType())
+                    .fileName(file.getOriginalFilename())
+                    .sortOrder(nextSortOrder)
+                    .build();
+
+            courtGroupImageRepository.save(image);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to read image data", e);
+        }
+
+        return courtGroupImageRepository
+                .findByCourtGroupOrderBySortOrderAscImageIdAsc(group).stream()
+                .map(CourtGroupImage::getImageId)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Long> uploadCourtImage(Long courtId, MultipartFile file) {
+        Court court = courtRepository.findById(courtId)
+                .orElseThrow(() -> new RuntimeException("Court not found"));
+
+        try {
+            List<CourtImage> existing = courtImageRepository
+                    .findByCourtOrderBySortOrderAscImageIdAsc(court);
+            int nextSortOrder = existing.isEmpty()
+                    ? 0
+                    : (existing.get(existing.size() - 1).getSortOrder() != null
+                            ? existing.get(existing.size() - 1).getSortOrder() + 1
+                            : existing.size());
+
+            CourtImage image = CourtImage.builder()
+                    .court(court)
+                    .imageData(file.getBytes())
+                    .contentType(file.getContentType())
+                    .fileName(file.getOriginalFilename())
+                    .sortOrder(nextSortOrder)
+                    .build();
+
+            courtImageRepository.save(image);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to read image data", e);
+        }
+
+        return courtImageRepository
+                .findByCourtOrderBySortOrderAscImageIdAsc(court).stream()
+                .map(CourtImage::getImageId)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ImageDTO> getCourtGroupImages(Long courtGroupId) {
+        CourtGroup group = countGroupRepository.findById(courtGroupId)
+                .orElseThrow(() -> new RuntimeException("Court Group not found"));
+
+        return courtGroupImageRepository
+                .findByCourtGroupOrderBySortOrderAscImageIdAsc(group).stream()
+                .map(this::mapToImageDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ImageDTO> getCourtImages(Long courtId) {
+        Court court = courtRepository.findById(courtId)
+                .orElseThrow(() -> new RuntimeException("Court not found"));
+
+        return courtImageRepository
+                .findByCourtOrderBySortOrderAscImageIdAsc(court).stream()
+                .map(this::mapToImageDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public ImageDTO getCourtGroupImageById(Long imageId) {
+        CourtGroupImage image = courtGroupImageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Court Group image not found"));
+        return mapToImageDTO(image);
+    }
+
+    @Override
+    public ImageDTO getCourtImageById(Long imageId) {
+        CourtImage image = courtImageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Court image not found"));
+        return mapToImageDTO(image);
+    }
+
+    private ImageDTO mapToImageDTO(CourtGroupImage image) {
+        String base64 = java.util.Base64.getEncoder().encodeToString(image.getImageData());
+        return ImageDTO.builder()
+                .imageId(image.getImageId())
+                .fileName(image.getFileName())
+                .contentType(image.getContentType())
+                .data(base64)
+                .build();
+    }
+
+    private ImageDTO mapToImageDTO(CourtImage image) {
+        String base64 = java.util.Base64.getEncoder().encodeToString(image.getImageData());
+        return ImageDTO.builder()
+                .imageId(image.getImageId())
+                .fileName(image.getFileName())
+                .contentType(image.getContentType())
+                .data(base64)
+                .build();
     }
 
     /**

@@ -5,12 +5,14 @@ import com.pickleball.app.dto.court.CourtDTO;
 import com.pickleball.app.dto.court.CourtGroupDTO;
 import com.pickleball.app.dto.court.CourtGroupRequest;
 import com.pickleball.app.dto.court.CourtRequest;
+import com.pickleball.app.dto.court.ImageDTO;
 import com.pickleball.app.service.CourtService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -79,6 +81,26 @@ public class CourtController {
     public ResponseEntity<ApiResponse<Void>> deleteCourtGroup(@PathVariable Long id) {
         courtService.deleteCourtGroup(id);
         return ResponseEntity.ok(ApiResponse.success("Court Group deleted successfully"));
+    }
+
+    // --- Court Group Images ---
+
+    @PostMapping("/groups/{id}/images")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
+    public ResponseEntity<ApiResponse<java.util.List<Long>>> uploadCourtGroupImage(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.success(courtService.uploadCourtGroupImage(id, file)));
+    }
+
+    @GetMapping("/groups/{id}/images")
+    public ResponseEntity<ApiResponse<java.util.List<ImageDTO>>> getCourtGroupImages(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(courtService.getCourtGroupImages(id)));
+    }
+
+    @GetMapping("/groups/images/{imageId}")
+    public ResponseEntity<ApiResponse<ImageDTO>> getCourtGroupImageById(@PathVariable Long imageId) {
+        return ResponseEntity.ok(ApiResponse.success(courtService.getCourtGroupImageById(imageId)));
     }
 
     // --- Courts ---
@@ -189,6 +211,26 @@ public class CourtController {
     public ResponseEntity<ApiResponse<Void>> deleteCourt(@PathVariable Long id) {
         courtService.deleteCourt(id);
         return ResponseEntity.ok(ApiResponse.success("Court deleted successfully"));
+    }
+
+    // --- Court Images ---
+
+    @PostMapping("/{id}/images")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
+    public ResponseEntity<ApiResponse<java.util.List<Long>>> uploadCourtImage(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.success(courtService.uploadCourtImage(id, file)));
+    }
+
+    @GetMapping("/{id}/images")
+    public ResponseEntity<ApiResponse<java.util.List<ImageDTO>>> getCourtImages(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(courtService.getCourtImages(id)));
+    }
+
+    @GetMapping("/images/{imageId}")
+    public ResponseEntity<ApiResponse<ImageDTO>> getCourtImageById(@PathVariable Long imageId) {
+        return ResponseEntity.ok(ApiResponse.success(courtService.getCourtImageById(imageId)));
     }
 
     @GetMapping("/{id}/slots")

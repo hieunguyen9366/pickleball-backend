@@ -20,7 +20,10 @@ public class CourtDTO {
     // Additional fields from CourtGroup
     private String address; // Location/address from CourtGroup
     private String description; // Description from CourtGroup
-    private String images; // Images from CourtGroup (JSON string or comma-separated)
+    private String images; // Legacy images from CourtGroup (JSON string or comma-separated)
+    // Image IDs for this court and its group
+    private java.util.List<Long> courtImageIds;
+    private java.util.List<Long> courtGroupImageIds;
     private String phone; // Phone from CourtGroup (if available) or manager phone
     // Amenities/Services - will be populated from Service entities
     private List<String> amenities; // List of service names available at this court group

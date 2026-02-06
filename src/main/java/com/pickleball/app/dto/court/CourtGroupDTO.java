@@ -17,5 +17,13 @@ public class CourtGroupDTO {
     private String district;
     private String city;
     private String description;
+    /**
+     * Legacy images field (e.g. URLs/JSON) - kept for backward compatibility.
+     */
     private String images;
+
+    /**
+     * IDs of images stored in court_group_images table.
+     */
+    private java.util.List<Long> imageIds;
 }
