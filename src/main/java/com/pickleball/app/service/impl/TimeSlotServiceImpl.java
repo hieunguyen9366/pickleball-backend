@@ -1,15 +1,15 @@
 package com.pickleball.app.service.impl;
 
 import com.pickleball.app.dto.court.TimeSlotDTO;
-import com.pickleball.app.dto.timeslot.TimeSlotConfigDTO;
 import com.pickleball.app.entity.Booking;
 import com.pickleball.app.entity.Court;
 import com.pickleball.app.entity.TimeSlot;
+import com.pickleball.app.entity.TimeSlotConfig;
 import com.pickleball.app.repository.BookingRepository;
 import com.pickleball.app.repository.CourtRepository;
+import com.pickleball.app.repository.TimeSlotConfigRepository;
 import com.pickleball.app.repository.TimeSlotRepository;
 import com.pickleball.app.service.PricingService;
-import com.pickleball.app.service.TimeSlotConfigService;
 import com.pickleball.app.service.TimeSlotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,7 +29,7 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     private final TimeSlotRepository timeSlotRepository;
     private final CourtRepository courtRepository;
     private final BookingRepository bookingRepository;
-    private final TimeSlotConfigService timeSlotConfigService;
+    private final TimeSlotConfigRepository timeSlotConfigRepository;
     private final PricingService pricingService;
 
     @Override
@@ -43,8 +43,17 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         // Nếu không có tham số, lấy từ config
         if (startHour == 0 && endHour == 0 && slotDurationMinutes == 0) {
             try {
-                TimeSlotConfigDTO config = timeSlotConfigService.getConfigForCourt(courtId);
-                if (config != null && config.getIsActive()) {
+                // Lấy config cho sân cụ thể
+                TimeSlotConfig config = timeSlotConfigRepository.findByCourtAndIsActiveTrue(court)
+                        .orElse(null);
+
+                // Nếu không có, lấy config cho cụm sân (nếu có)
+                if (config == null && court.getCourtGroup() != null) {
+                    config = timeSlotConfigRepository.findByCourtGroupAndIsActiveTrue(court.getCourtGroup())
+                            .orElse(null);
+                }
+
+                if (config != null && Boolean.TRUE.equals(config.getIsActive())) {
                     startHour = config.getOpenTime().getHour();
                     endHour = config.getCloseTime().getHour();
                     slotDurationMinutes = config.getSlotDuration();
