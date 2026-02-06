@@ -27,7 +27,7 @@ public class CourtImage {
     private Court court;
 
     @Lob
-    @Column(name = "image_data", nullable = false)
+    @Column(name = "image_data", nullable = false, columnDefinition = "LONGBLOB")
     private byte[] imageData;
 
     @Column(name = "content_type")
@@ -43,4 +43,3 @@ public class CourtImage {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 }
-

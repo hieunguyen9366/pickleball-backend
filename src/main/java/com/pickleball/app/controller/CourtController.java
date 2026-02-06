@@ -87,10 +87,18 @@ public class CourtController {
 
     @PostMapping("/groups/{id}/images")
     @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
-    public ResponseEntity<ApiResponse<java.util.List<Long>>> uploadCourtGroupImage(
+    public ResponseEntity<ApiResponse<List<Long>>> uploadCourtGroupImage(
             @PathVariable Long id,
             @RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(ApiResponse.success(courtService.uploadCourtGroupImage(id, file)));
+    }
+
+    @PostMapping("/groups/{id}/images/batch")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
+    public ResponseEntity<ApiResponse<List<Long>>> uploadCourtGroupImages(
+            @PathVariable Long id,
+            @RequestParam("files") List<MultipartFile> files) {
+        return ResponseEntity.ok(ApiResponse.success(courtService.uploadCourtGroupImages(id, files)));
     }
 
     @GetMapping("/groups/{id}/images")
@@ -101,6 +109,22 @@ public class CourtController {
     @GetMapping("/groups/images/{imageId}")
     public ResponseEntity<ApiResponse<ImageDTO>> getCourtGroupImageById(@PathVariable Long imageId) {
         return ResponseEntity.ok(ApiResponse.success(courtService.getCourtGroupImageById(imageId)));
+    }
+
+    @DeleteMapping("/groups/images/{imageId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> deleteCourtGroupImage(@PathVariable Long imageId) {
+        courtService.deleteCourtGroupImage(imageId);
+        return ResponseEntity.ok(ApiResponse.success("Image deleted successfully"));
+    }
+
+    @PutMapping("/groups/{id}/images/order")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> updateCourtGroupImageOrder(
+            @PathVariable Long id,
+            @RequestBody java.util.List<Long> imageIds) {
+        courtService.updateCourtGroupImageOrder(id, imageIds);
+        return ResponseEntity.ok(ApiResponse.success("Image order updated successfully"));
     }
 
     // --- Courts ---
@@ -140,10 +164,10 @@ public class CourtController {
             @RequestParam(required = false) String sortBy,
             @RequestParam(required = false, defaultValue = "1") int page,
             @RequestParam(required = false, defaultValue = "10") int pageSize) {
-        
+
         // Build search request DTO
-        com.pickleball.app.dto.court.CourtSearchRequestDTO request = 
-            com.pickleball.app.dto.court.CourtSearchRequestDTO.builder()
+        com.pickleball.app.dto.court.CourtSearchRequestDTO request = com.pickleball.app.dto.court.CourtSearchRequestDTO
+                .builder()
                 .searchTerm(searchTerm)
                 .district(district)
                 .city(city)
@@ -160,25 +184,25 @@ public class CourtController {
                 .page(page)
                 .pageSize(pageSize)
                 .build();
-        
-        com.pickleball.app.dto.court.CourtSearchResponse response = 
-            courtService.searchCourtsAdvanced(request);
-        
+
+        com.pickleball.app.dto.court.CourtSearchResponse response = courtService.searchCourtsAdvanced(request);
+
         return ResponseEntity.ok(ApiResponse.success(response));
     }
-    
+
     @GetMapping("/districts")
     public ResponseEntity<ApiResponse<List<String>>> getDistricts() {
         return ResponseEntity.ok(ApiResponse.success(courtService.getDistricts()));
     }
-    
+
     @GetMapping("/cities")
     public ResponseEntity<ApiResponse<List<String>>> getCities() {
         return ResponseEntity.ok(ApiResponse.success(courtService.getCities()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<com.pickleball.app.dto.court.CourtDetailDTO>> getCourtById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<com.pickleball.app.dto.court.CourtDetailDTO>> getCourtById(
+            @PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(courtService.getCourtDetailById(id)));
     }
 
@@ -196,7 +220,8 @@ public class CourtController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
-    public ResponseEntity<ApiResponse<CourtDTO>> updateCourt(@PathVariable Long id, @Valid @RequestBody CourtRequest request) {
+    public ResponseEntity<ApiResponse<CourtDTO>> updateCourt(@PathVariable Long id,
+            @Valid @RequestBody CourtRequest request) {
         // Convert Request DTO to DTO for service
         CourtDTO dto = new CourtDTO();
         dto.setCourtGroupId(request.getCourtGroupId());
@@ -223,6 +248,14 @@ public class CourtController {
         return ResponseEntity.ok(ApiResponse.success(courtService.uploadCourtImage(id, file)));
     }
 
+    @PostMapping("/{id}/images/batch")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
+    public ResponseEntity<ApiResponse<java.util.List<Long>>> uploadCourtImages(
+            @PathVariable Long id,
+            @RequestParam("files") java.util.List<MultipartFile> files) {
+        return ResponseEntity.ok(ApiResponse.success(courtService.uploadCourtImages(id, files)));
+    }
+
     @GetMapping("/{id}/images")
     public ResponseEntity<ApiResponse<java.util.List<ImageDTO>>> getCourtImages(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(courtService.getCourtImages(id)));
@@ -231,6 +264,40 @@ public class CourtController {
     @GetMapping("/images/{imageId}")
     public ResponseEntity<ApiResponse<ImageDTO>> getCourtImageById(@PathVariable Long imageId) {
         return ResponseEntity.ok(ApiResponse.success(courtService.getCourtImageById(imageId)));
+    }
+
+    @DeleteMapping("/images/{imageId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> deleteCourtImage(@PathVariable Long imageId) {
+        courtService.deleteCourtImage(imageId);
+        return ResponseEntity.ok(ApiResponse.success("Image deleted successfully"));
+    }
+
+    @GetMapping("/images/{imageId}/view")
+    public ResponseEntity<byte[]> viewCourtImage(@PathVariable Long imageId) {
+        ImageDTO image = courtService.getCourtImageById(imageId);
+        byte[] imageBytes = java.util.Base64.getDecoder().decode(image.getData());
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(image.getContentType()))
+                .body(imageBytes);
+    }
+
+    @GetMapping("/groups/images/{imageId}/view")
+    public ResponseEntity<byte[]> viewCourtGroupImage(@PathVariable Long imageId) {
+        ImageDTO image = courtService.getCourtGroupImageById(imageId);
+        byte[] imageBytes = java.util.Base64.getDecoder().decode(image.getData());
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(image.getContentType()))
+                .body(imageBytes);
+    }
+
+    @PutMapping("/{id}/images/order")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('COURT_MANAGER')")
+    public ResponseEntity<ApiResponse<Void>> updateCourtImageOrder(
+            @PathVariable Long id,
+            @RequestBody java.util.List<Long> imageIds) {
+        courtService.updateCourtImageOrder(id, imageIds);
+        return ResponseEntity.ok(ApiResponse.success("Image order updated successfully"));
     }
 
     @GetMapping("/{id}/slots")
@@ -247,8 +314,8 @@ public class CourtController {
             @RequestParam String startTime,
             @RequestParam String endTime) {
         boolean available = courtService.checkTimeSlotAvailability(id, date, startTime, endTime);
-        com.pickleball.app.dto.court.AvailabilityResponse response = 
-            com.pickleball.app.dto.court.AvailabilityResponse.builder()
+        com.pickleball.app.dto.court.AvailabilityResponse response = com.pickleball.app.dto.court.AvailabilityResponse
+                .builder()
                 .available(available)
                 .message(available ? "Time slot is available" : "Time slot is not available")
                 .build();

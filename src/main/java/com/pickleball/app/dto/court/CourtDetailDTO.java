@@ -25,11 +25,12 @@ public class CourtDetailDTO {
     private String city;
     private String description;
     private String images; // Legacy images
+
+    // List of Base64 encoded images for display
+    private java.util.List<String> imageList;
+
     // Image IDs for this court and its group
     private java.util.List<Long> courtImageIds;
     private java.util.List<Long> courtGroupImageIds;
     // Add reviews, ratings if needed
 }
-
-
-

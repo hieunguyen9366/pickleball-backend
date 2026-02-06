@@ -31,27 +31,35 @@ public interface CourtService {
 
     // Advanced
     List<CourtDTO> searchCourts(String date, String startTime, String endTime); // Check availability from TimeSlot
-    
+
     // Enhanced search with all filters
-    com.pickleball.app.dto.court.CourtSearchResponse searchCourtsAdvanced(com.pickleball.app.dto.court.CourtSearchRequestDTO request);
+    com.pickleball.app.dto.court.CourtSearchResponse searchCourtsAdvanced(
+            com.pickleball.app.dto.court.CourtSearchRequestDTO request);
 
     List<String> getCourtTimeSlots(Long courtId, String date);
-    
+
     // New methods
     CourtDetailDTO getCourtDetailById(Long id);
-    
+
     List<TimeSlotDTO> getAvailableTimeSlots(Long courtId, String date);
-    
+
     boolean checkTimeSlotAvailability(Long courtId, String date, String startTime, String endTime);
-    
+
     // Get districts and cities
     List<String> getDistricts();
+
     List<String> getCities();
 
     // Images for court groups and courts
     java.util.List<Long> uploadCourtGroupImage(Long courtGroupId, org.springframework.web.multipart.MultipartFile file);
 
+    java.util.List<Long> uploadCourtGroupImages(Long courtGroupId,
+            java.util.List<org.springframework.web.multipart.MultipartFile> files);
+
     java.util.List<Long> uploadCourtImage(Long courtId, org.springframework.web.multipart.MultipartFile file);
+
+    java.util.List<Long> uploadCourtImages(Long courtId,
+            java.util.List<org.springframework.web.multipart.MultipartFile> files);
 
     java.util.List<ImageDTO> getCourtGroupImages(Long courtGroupId);
 
@@ -60,4 +68,13 @@ public interface CourtService {
     ImageDTO getCourtGroupImageById(Long imageId);
 
     ImageDTO getCourtImageById(Long imageId);
+
+    // Manage images
+    void deleteCourtGroupImage(Long imageId);
+
+    void deleteCourtImage(Long imageId);
+
+    void updateCourtGroupImageOrder(Long courtGroupId, java.util.List<Long> imageIdsInOrder);
+
+    void updateCourtImageOrder(Long courtId, java.util.List<Long> imageIdsInOrder);
 }

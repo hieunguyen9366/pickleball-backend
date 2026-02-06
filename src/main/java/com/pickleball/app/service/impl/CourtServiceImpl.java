@@ -19,6 +19,7 @@ import com.pickleball.app.repository.ServiceRepository;
 import com.pickleball.app.enums.ServiceStatus;
 import com.pickleball.app.service.CourtService;
 import com.pickleball.app.service.TimeSlotService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -220,28 +221,32 @@ public class CourtServiceImpl implements CourtService {
     @Override
     public com.pickleball.app.dto.court.CourtSearchResponse searchCourtsAdvanced(
             com.pickleball.app.dto.court.CourtSearchRequestDTO request) {
-        
+
         // Get all active courts
         List<Court> allCourts = courtRepository.findAll().stream()
                 .filter(c -> c.getStatus() == com.pickleball.app.enums.CourtStatus.AVAILABLE)
                 .collect(Collectors.toList());
-        
+
         // Apply search term filter
         if (request.getSearchTerm() != null && !request.getSearchTerm().trim().isEmpty()) {
             String searchTerm = request.getSearchTerm().toLowerCase().trim();
             allCourts = allCourts.stream()
                     .filter(court -> {
                         String courtName = (court.getCourtName() != null) ? court.getCourtName().toLowerCase() : "";
-                        String groupName = (court.getCourtGroup().getGroupName() != null) 
-                                ? court.getCourtGroup().getGroupName().toLowerCase() : "";
-                        String address = (court.getCourtGroup().getAddress() != null) 
-                                ? court.getCourtGroup().getAddress().toLowerCase() : "";
-                        String district = (court.getCourtGroup().getDistrict() != null) 
-                                ? court.getCourtGroup().getDistrict().toLowerCase() : "";
-                        String city = (court.getCourtGroup().getCity() != null) 
-                                ? court.getCourtGroup().getCity().toLowerCase() : "";
-                        
-                        return courtName.contains(searchTerm) 
+                        String groupName = (court.getCourtGroup().getGroupName() != null)
+                                ? court.getCourtGroup().getGroupName().toLowerCase()
+                                : "";
+                        String address = (court.getCourtGroup().getAddress() != null)
+                                ? court.getCourtGroup().getAddress().toLowerCase()
+                                : "";
+                        String district = (court.getCourtGroup().getDistrict() != null)
+                                ? court.getCourtGroup().getDistrict().toLowerCase()
+                                : "";
+                        String city = (court.getCourtGroup().getCity() != null)
+                                ? court.getCourtGroup().getCity().toLowerCase()
+                                : "";
+
+                        return courtName.contains(searchTerm)
                                 || groupName.contains(searchTerm)
                                 || address.contains(searchTerm)
                                 || district.contains(searchTerm)
@@ -249,17 +254,17 @@ public class CourtServiceImpl implements CourtService {
                     })
                     .collect(Collectors.toList());
         }
-        
+
         // Apply location filters
         if (request.getDistrict() != null && !request.getDistrict().trim().isEmpty()) {
             allCourts = allCourts.stream()
-                    .filter(c -> c.getCourtGroup().getDistrict() != null 
+                    .filter(c -> c.getCourtGroup().getDistrict() != null
                             && c.getCourtGroup().getDistrict().equals(request.getDistrict()))
                     .collect(Collectors.toList());
         }
         if (request.getCity() != null && !request.getCity().trim().isEmpty()) {
             allCourts = allCourts.stream()
-                    .filter(c -> c.getCourtGroup().getCity() != null 
+                    .filter(c -> c.getCourtGroup().getCity() != null
                             && c.getCourtGroup().getCity().equals(request.getCity()))
                     .collect(Collectors.toList());
         }
@@ -273,7 +278,7 @@ public class CourtServiceImpl implements CourtService {
                     .filter(c -> c.getStatus() == request.getStatus())
                     .collect(Collectors.toList());
         }
-        
+
         // Nếu có date/time filter, trả về từng slot riêng biệt
         if (request.getDate() != null && request.getStartTime() != null && request.getEndTime() != null) {
             LocalDate searchDate = LocalDate.parse(request.getDate());
@@ -282,40 +287,38 @@ public class CourtServiceImpl implements CourtService {
             String normalizedEndTime = normalizeTimeFormat(request.getEndTime());
             LocalTime searchStart = LocalTime.parse(normalizedStartTime);
             LocalTime searchEnd = LocalTime.parse(normalizedEndTime);
-            
+
             if (!searchStart.isAfter(searchEnd) && !searchStart.equals(searchEnd)) {
                 // Tìm tất cả slots trong khoảng thời gian từ các courts đã filter
                 List<com.pickleball.app.dto.court.CourtSlotSearchResult> slotResults = new java.util.ArrayList<>();
-                
+
                 for (Court court : allCourts) {
                     // Tìm tất cả slots overlap với khoảng thời gian tìm kiếm
-                    List<com.pickleball.app.entity.TimeSlot> overlappingSlots = 
-                        timeSlotRepository.findOverlappingSlots(
-                            court.getCourtId(), 
-                            searchDate, 
-                            searchStart, 
-                            searchEnd
-                        );
-                    
+                    List<com.pickleball.app.entity.TimeSlot> overlappingSlots = timeSlotRepository.findOverlappingSlots(
+                            court.getCourtId(),
+                            searchDate,
+                            searchStart,
+                            searchEnd);
+
                     // Lọc chỉ các slots available và nằm trong khoảng thời gian
                     for (com.pickleball.app.entity.TimeSlot slot : overlappingSlots) {
                         // Slot phải available và chưa được đặt
                         if (!slot.getIsAvailable() || slot.getBooking() != null) {
                             continue;
                         }
-                        
+
                         // Slot phải nằm trong khoảng thời gian tìm kiếm
                         if (slot.getStartTime().isBefore(searchStart) || slot.getEndTime().isAfter(searchEnd)) {
                             continue;
                         }
-                        
+
                         // Map court + slot thành CourtSlotSearchResult
-                        com.pickleball.app.dto.court.CourtSlotSearchResult result = 
-                            mapToCourtSlotSearchResult(court, slot);
-                        
+                        com.pickleball.app.dto.court.CourtSlotSearchResult result = mapToCourtSlotSearchResult(court,
+                                slot);
+
                         // Check lock status
-                        java.util.Map<Long, Long> lockedByUserIds = 
-                            timeSlotLockService.getLockedByUserIds(java.util.Arrays.asList(slot.getSlotId()));
+                        java.util.Map<Long, Long> lockedByUserIds = timeSlotLockService
+                                .getLockedByUserIds(java.util.Arrays.asList(slot.getSlotId()));
                         Long lockedByUserId = lockedByUserIds.get(slot.getSlotId());
                         if (lockedByUserId != null) {
                             result.setIsLocked(true);
@@ -324,32 +327,32 @@ public class CourtServiceImpl implements CourtService {
                             result.setIsLocked(false);
                             result.setLockedByUserId(null);
                         }
-                        
+
                         slotResults.add(result);
                     }
                 }
-                
+
                 // Apply price filters on slot price
                 if (request.getMinPrice() != null) {
                     slotResults = slotResults.stream()
-                            .filter(r -> r.getSlotPrice() != null 
+                            .filter(r -> r.getSlotPrice() != null
                                     && r.getSlotPrice().compareTo(request.getMinPrice()) >= 0)
                             .collect(Collectors.toList());
                 }
                 if (request.getMaxPrice() != null) {
                     slotResults = slotResults.stream()
-                            .filter(r -> r.getSlotPrice() != null 
+                            .filter(r -> r.getSlotPrice() != null
                                     && r.getSlotPrice().compareTo(request.getMaxPrice()) <= 0)
                             .collect(Collectors.toList());
                 }
-                
+
                 // Apply rating filter
                 if (request.getMinRating() != null && request.getMinRating() > 0) {
                     slotResults = slotResults.stream()
                             .filter(r -> r.getRating() != null && r.getRating() >= request.getMinRating())
                             .collect(Collectors.toList());
                 }
-                
+
                 // Apply amenities filter
                 if (request.getAmenities() != null && !request.getAmenities().isEmpty()) {
                     List<String> requiredAmenities = request.getAmenities();
@@ -362,7 +365,7 @@ public class CourtServiceImpl implements CourtService {
                             })
                             .collect(Collectors.toList());
                 }
-                
+
                 // Apply sorting
                 String sortBy = request.getSortBy() != null ? request.getSortBy() : "default";
                 switch (sortBy) {
@@ -398,28 +401,30 @@ public class CourtServiceImpl implements CourtService {
                         // Sort by time first, then by court name
                         slotResults.sort((a, b) -> {
                             int timeCompare = a.getSlotStartTime().compareTo(b.getSlotStartTime());
-                            if (timeCompare != 0) return timeCompare;
+                            if (timeCompare != 0)
+                                return timeCompare;
                             String nameA = a.getCourtName() != null ? a.getCourtName() : "";
                             String nameB = b.getCourtName() != null ? b.getCourtName() : "";
                             return nameA.compareToIgnoreCase(nameB);
                         });
                         break;
                 }
-                
+
                 // Pagination
                 int total = slotResults.size();
                 int page = request.getPage() != null && request.getPage() > 0 ? request.getPage() : 1;
                 int pageSize = request.getPageSize() != null && request.getPageSize() > 0 ? request.getPageSize() : 10;
                 int totalPages = (int) Math.ceil((double) total / pageSize);
                 int start = (page - 1) * pageSize;
-                
+
                 List<com.pickleball.app.dto.court.CourtSlotSearchResult> paginatedResults = slotResults.stream()
                         .skip(start)
                         .limit(pageSize)
                         .collect(Collectors.toList());
-                
+
                 // Convert to CourtSearchResponse for backward compatibility
-                // Map CourtSlotSearchResult to CourtDTO (bao gồm slot info trong description hoặc custom field)
+                // Map CourtSlotSearchResult to CourtDTO (bao gồm slot info trong description
+                // hoặc custom field)
                 // Note: Frontend sẽ cần parse thông tin slot từ response
                 // Tạm thời, ta sẽ thêm slot info vào description hoặc tạo một custom field
                 List<CourtDTO> courtDTOs = paginatedResults.stream()
@@ -442,23 +447,23 @@ public class CourtServiceImpl implements CourtService {
                             dto.setBasePricePerHour(result.getSlotPrice());
                             // Store slot info in description as JSON (temporary solution)
                             // Frontend sẽ parse để lấy slot info
-                            // Format: "SLOT_INFO:{\"slotId\":123,\"slotDate\":\"2024-01-01\",\"slotStartTime\":\"06:00\",\"slotEndTime\":\"07:00\",\"isLocked\":false}"
+                            // Format:
+                            // "SLOT_INFO:{\"slotId\":123,\"slotDate\":\"2024-01-01\",\"slotStartTime\":\"06:00\",\"slotEndTime\":\"07:00\",\"isLocked\":false}"
                             String slotInfoJson = String.format(
-                                "SLOT_INFO:{\"slotId\":%d,\"slotDate\":\"%s\",\"slotStartTime\":\"%s\",\"slotEndTime\":\"%s\",\"isLocked\":%s,\"lockedByUserId\":%s}",
-                                result.getSlotId(),
-                                result.getSlotDate(),
-                                result.getSlotStartTime(),
-                                result.getSlotEndTime(),
-                                result.getIsLocked(),
-                                result.getLockedByUserId() != null ? result.getLockedByUserId() : "null"
-                            );
+                                    "SLOT_INFO:{\"slotId\":%d,\"slotDate\":\"%s\",\"slotStartTime\":\"%s\",\"slotEndTime\":\"%s\",\"isLocked\":%s,\"lockedByUserId\":%s}",
+                                    result.getSlotId(),
+                                    result.getSlotDate(),
+                                    result.getSlotStartTime(),
+                                    result.getSlotEndTime(),
+                                    result.getIsLocked(),
+                                    result.getLockedByUserId() != null ? result.getLockedByUserId() : "null");
                             // Append to description (temporary)
                             String originalDesc = dto.getDescription() != null ? dto.getDescription() : "";
                             dto.setDescription(originalDesc + "\n" + slotInfoJson);
                             return dto;
                         })
                         .collect(Collectors.toList());
-                
+
                 return com.pickleball.app.dto.court.CourtSearchResponse.builder()
                         .courts(courtDTOs)
                         .total((long) total)
@@ -468,34 +473,34 @@ public class CourtServiceImpl implements CourtService {
                         .build();
             }
         }
-        
+
         // Nếu không có date/time filter, trả về courts như cũ
         // Map to DTOs for price/rating/amenities filtering
         List<CourtDTO> courtDTOs = allCourts.stream()
                 .map(this::mapToCourtDTO)
                 .collect(Collectors.toList());
-        
+
         // Apply price filters
         if (request.getMinPrice() != null) {
             courtDTOs = courtDTOs.stream()
-                    .filter(c -> c.getBasePricePerHour() != null 
+                    .filter(c -> c.getBasePricePerHour() != null
                             && c.getBasePricePerHour().compareTo(request.getMinPrice()) >= 0)
                     .collect(Collectors.toList());
         }
         if (request.getMaxPrice() != null) {
             courtDTOs = courtDTOs.stream()
-                    .filter(c -> c.getBasePricePerHour() != null 
+                    .filter(c -> c.getBasePricePerHour() != null
                             && c.getBasePricePerHour().compareTo(request.getMaxPrice()) <= 0)
                     .collect(Collectors.toList());
         }
-        
+
         // Apply rating filter
         if (request.getMinRating() != null && request.getMinRating() > 0) {
             courtDTOs = courtDTOs.stream()
                     .filter(c -> c.getRating() != null && c.getRating() >= request.getMinRating())
                     .collect(Collectors.toList());
         }
-        
+
         // Apply amenities filter
         if (request.getAmenities() != null && !request.getAmenities().isEmpty()) {
             List<String> requiredAmenities = request.getAmenities();
@@ -508,7 +513,7 @@ public class CourtServiceImpl implements CourtService {
                     })
                     .collect(Collectors.toList());
         }
-        
+
         // Apply sorting
         String sortBy = request.getSortBy() != null ? request.getSortBy() : "default";
         switch (sortBy) {
@@ -544,19 +549,19 @@ public class CourtServiceImpl implements CourtService {
                 // Keep original order
                 break;
         }
-        
+
         // Pagination
         int total = courtDTOs.size();
         int page = request.getPage() != null && request.getPage() > 0 ? request.getPage() : 1;
         int pageSize = request.getPageSize() != null && request.getPageSize() > 0 ? request.getPageSize() : 10;
         int totalPages = (int) Math.ceil((double) total / pageSize);
         int start = (page - 1) * pageSize;
-        
+
         List<CourtDTO> paginatedCourts = courtDTOs.stream()
                 .skip(start)
                 .limit(pageSize)
                 .collect(Collectors.toList());
-        
+
         return com.pickleball.app.dto.court.CourtSearchResponse.builder()
                 .courts(paginatedCourts)
                 .total((long) total)
@@ -572,7 +577,7 @@ public class CourtServiceImpl implements CourtService {
         List<Court> allCourts = courtRepository.findAll().stream()
                 .filter(c -> c.getStatus() == com.pickleball.app.enums.CourtStatus.AVAILABLE)
                 .collect(Collectors.toList());
-        
+
         // If date and time provided, filter by availability from TimeSlot
         if (date != null && startTime != null && endTime != null) {
             LocalDate searchDate = LocalDate.parse(date);
@@ -581,54 +586,53 @@ public class CourtServiceImpl implements CourtService {
             String normalizedEndTime = normalizeTimeFormat(endTime);
             LocalTime searchStart = LocalTime.parse(normalizedStartTime);
             LocalTime searchEnd = LocalTime.parse(normalizedEndTime);
-            
+
             // Validate time range
             if (searchStart.isAfter(searchEnd) || searchStart.equals(searchEnd)) {
                 return java.util.Collections.emptyList();
             }
-            
+
             // Filter courts that have ALL required time slots available
             return allCourts.stream()
                     .filter(court -> {
                         // Tìm tất cả slots overlapping với khoảng thời gian yêu cầu
-                        List<com.pickleball.app.entity.TimeSlot> overlappingSlots = 
-                            timeSlotRepository.findOverlappingSlots(
-                                court.getCourtId(), 
-                                searchDate, 
-                                searchStart, 
-                                searchEnd
-                            );
-                        
+                        List<com.pickleball.app.entity.TimeSlot> overlappingSlots = timeSlotRepository
+                                .findOverlappingSlots(
+                                        court.getCourtId(),
+                                        searchDate,
+                                        searchStart,
+                                        searchEnd);
+
                         // Kiểm tra: Tất cả slots trong khoảng thời gian phải available
                         // Và phải có đủ slots để cover toàn bộ khoảng thời gian
                         if (overlappingSlots.isEmpty()) {
                             return false; // Không có slots nào cho khoảng thời gian này
                         }
-                        
+
                         // Check tất cả slots phải available và không bị booked
                         boolean allAvailable = overlappingSlots.stream()
-                            .allMatch(slot -> slot.getIsAvailable() && slot.getBooking() == null);
-                        
+                                .allMatch(slot -> slot.getIsAvailable() && slot.getBooking() == null);
+
                         if (!allAvailable) {
                             return false; // Có slot đã bị booked
                         }
-                        
+
                         // Check slots phải liên tiếp và cover toàn bộ khoảng thời gian
                         // Sắp xếp slots theo startTime
                         overlappingSlots.sort((s1, s2) -> s1.getStartTime().compareTo(s2.getStartTime()));
-                        
+
                         // Check slot đầu tiên phải bắt đầu trước hoặc bằng searchStart
                         LocalTime firstSlotStart = overlappingSlots.get(0).getStartTime();
                         if (firstSlotStart.isAfter(searchStart)) {
                             return false; // Slot đầu tiên không cover searchStart
                         }
-                        
+
                         // Check slot cuối cùng phải kết thúc sau hoặc bằng searchEnd
                         LocalTime lastSlotEnd = overlappingSlots.get(overlappingSlots.size() - 1).getEndTime();
                         if (lastSlotEnd.isBefore(searchEnd)) {
                             return false; // Slot cuối cùng không cover searchEnd
                         }
-                        
+
                         // Check slots phải liên tiếp (không có gap)
                         for (int i = 0; i < overlappingSlots.size() - 1; i++) {
                             LocalTime currentEnd = overlappingSlots.get(i).getEndTime();
@@ -637,13 +641,13 @@ public class CourtServiceImpl implements CourtService {
                                 return false; // Có gap giữa các slots
                             }
                         }
-                        
+
                         return true; // Tất cả điều kiện đều thỏa mãn
                     })
                     .map(this::mapToCourtDTO)
                     .collect(Collectors.toList());
         }
-        
+
         // If no date/time filter, return all active courts
         return allCourts.stream()
                 .map(this::mapToCourtDTO)
@@ -679,6 +683,27 @@ public class CourtServiceImpl implements CourtService {
                 .map(CourtGroupImage::getImageId)
                 .collect(Collectors.toList());
 
+        // Load images (Base64) for display
+        // Prioritize Court images, then Court Group images
+        List<String> imageList = new java.util.ArrayList<>();
+
+        List<CourtImage> courtImages = courtImageRepository.findByCourtOrderBySortOrderAscImageIdAsc(court);
+        for (CourtImage img : courtImages) {
+            if (img.getImageData() != null) {
+                String base64 = java.util.Base64.getEncoder().encodeToString(img.getImageData());
+                imageList.add("data:" + img.getContentType() + ";base64," + base64);
+            }
+        }
+
+        List<CourtGroupImage> groupImages = courtGroupImageRepository
+                .findByCourtGroupOrderBySortOrderAscImageIdAsc(court.getCourtGroup());
+        for (CourtGroupImage img : groupImages) {
+            if (img.getImageData() != null) {
+                String base64 = java.util.Base64.getEncoder().encodeToString(img.getImageData());
+                imageList.add("data:" + img.getContentType() + ";base64," + base64);
+            }
+        }
+
         return com.pickleball.app.dto.court.CourtDetailDTO.builder()
                 .courtId(court.getCourtId())
                 .courtGroupId(court.getCourtGroup().getCourtGroupId())
@@ -690,7 +715,8 @@ public class CourtServiceImpl implements CourtService {
                 .district(court.getCourtGroup().getDistrict())
                 .city(court.getCourtGroup().getCity())
                 .description(court.getCourtGroup().getDescription())
-                .images(court.getCourtGroup().getImages())
+                .images(court.getCourtGroup().getImages()) // legacy
+                .imageList(imageList) // New field
                 .courtImageIds(courtImageIds)
                 .courtGroupImageIds(courtGroupImageIds)
                 .build();
@@ -699,17 +725,17 @@ public class CourtServiceImpl implements CourtService {
     @Override
     public List<TimeSlotDTO> getAvailableTimeSlots(Long courtId, String date) {
         LocalDate bookingDate = LocalDate.parse(date);
-        
+
         // Lấy time slots từ database
         List<TimeSlotDTO> slots = timeSlotService.getAvailableTimeSlotsForDate(courtId, bookingDate);
-        
+
         // Nếu chưa có time slots trong database, tạo mới (sẽ tự động lấy từ config)
         if (slots.isEmpty()) {
             // Gọi với tham số 0,0,0 để tự động lấy từ config
             timeSlotService.generateTimeSlotsForDate(courtId, bookingDate, 0, 0, 0);
             slots = timeSlotService.getAvailableTimeSlotsForDate(courtId, bookingDate);
         }
-        
+
         return slots;
     }
 
@@ -718,15 +744,81 @@ public class CourtServiceImpl implements CourtService {
         LocalDate bookingDate = LocalDate.parse(date);
         LocalTime start = LocalTime.parse(startTime);
         LocalTime end = LocalTime.parse(endTime);
-        
+
         // Check từ TimeSlot table (đúng nghiệp vụ)
-        List<com.pickleball.app.entity.TimeSlot> overlappingSlots = 
-            timeSlotRepository.findOverlappingSlots(courtId, bookingDate, start, end);
-        
+        List<com.pickleball.app.entity.TimeSlot> overlappingSlots = timeSlotRepository.findOverlappingSlots(courtId,
+                bookingDate, start, end);
+
         // Tất cả slots phải available
-        return !overlappingSlots.isEmpty() && 
-               overlappingSlots.stream()
-                   .allMatch(slot -> slot.getIsAvailable() && slot.getBooking() == null);
+        return !overlappingSlots.isEmpty() &&
+                overlappingSlots.stream()
+                        .allMatch(slot -> slot.getIsAvailable() && slot.getBooking() == null);
+    }
+
+    @Override
+    public void deleteCourtGroupImage(Long imageId) {
+        CourtGroupImage image = courtGroupImageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Court Group Image not found"));
+        courtGroupImageRepository.delete(image);
+    }
+
+    @Override
+    public void deleteCourtImage(Long imageId) {
+        CourtImage image = courtImageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Court Image not found"));
+        courtImageRepository.delete(image);
+    }
+
+    @Override
+    public void updateCourtGroupImageOrder(Long courtGroupId, List<Long> imageIdsInOrder) {
+        CourtGroup group = countGroupRepository.findById(courtGroupId)
+                .orElseThrow(() -> new RuntimeException("Court Group not found"));
+
+        // Find all images for this group in the list
+        List<CourtGroupImage> images = courtGroupImageRepository.findByCourtGroupOrderBySortOrderAscImageIdAsc(group);
+
+        // Map ID to Image
+        java.util.Map<Long, CourtGroupImage> imageMap = images.stream()
+                .collect(Collectors.toMap(CourtGroupImage::getImageId, img -> img));
+
+        // Create a set of input IDs for quick lookup
+        java.util.Set<Long> inputIdSet = new java.util.HashSet<>(imageIdsInOrder);
+
+        // Update sort order based on input list
+        for (int i = 0; i < imageIdsInOrder.size(); i++) {
+            Long imageId = imageIdsInOrder.get(i);
+            CourtGroupImage image = imageMap.get(imageId);
+            if (image != null) {
+                image.setSortOrder(i);
+                courtGroupImageRepository.save(image);
+            }
+        }
+
+        // For any existing images NOT in the input list, put them at the end or keep
+        // logic simple
+        // Usually frontend sends ALL images. If not, we might want to preserve their
+        // order or push them to end.
+        // Here we assume frontend sends all relevant image IDs.
+    }
+
+    @Override
+    public void updateCourtImageOrder(Long courtId, List<Long> imageIdsInOrder) {
+        Court court = courtRepository.findById(courtId)
+                .orElseThrow(() -> new RuntimeException("Court not found"));
+
+        List<CourtImage> images = courtImageRepository.findByCourtOrderBySortOrderAscImageIdAsc(court);
+
+        java.util.Map<Long, CourtImage> imageMap = images.stream()
+                .collect(Collectors.toMap(CourtImage::getImageId, img -> img));
+
+        for (int i = 0; i < imageIdsInOrder.size(); i++) {
+            Long imageId = imageIdsInOrder.get(i);
+            CourtImage image = imageMap.get(imageId);
+            if (image != null) {
+                image.setSortOrder(i);
+                courtImageRepository.save(image);
+            }
+        }
     }
 
     // --- Mappers ---
@@ -755,14 +847,14 @@ public class CourtServiceImpl implements CourtService {
     private CourtDTO mapToCourtDTO(Court entity) {
         CourtDTO dto = new CourtDTO();
         CourtGroup courtGroup = entity.getCourtGroup();
-        
+
         // Basic court fields
         dto.setCourtId(entity.getCourtId());
         dto.setCourtGroupId(courtGroup.getCourtGroupId());
         dto.setCourtName(entity.getCourtName());
         dto.setStatus(entity.getStatus());
         dto.setBasePricePerHour(entity.getBasePricePerHour());
-        
+
         // Fields from CourtGroup
         dto.setDistrict(courtGroup.getDistrict());
         dto.setCity(courtGroup.getCity());
@@ -783,33 +875,33 @@ public class CourtServiceImpl implements CourtService {
                 .map(CourtGroupImage::getImageId)
                 .collect(Collectors.toList());
         dto.setCourtGroupImageIds(courtGroupImageIds);
-        
+
         // Phone from manager if available
         if (courtGroup.getManager() != null && courtGroup.getManager().getPhoneNumber() != null) {
             dto.setPhone(courtGroup.getManager().getPhoneNumber());
         }
-        
+
         // Amenities from Service entities (active services only)
         List<String> amenities = serviceRepository.findByCourtGroup(courtGroup).stream()
                 .filter(s -> s.getStatus() == ServiceStatus.AVAILABLE)
                 .map(com.pickleball.app.entity.Service::getServiceName)
                 .collect(Collectors.toList());
         dto.setAmenities(amenities);
-        
+
         // Rating and review count (can be calculated from reviews if available)
         // For now, set default values or calculate from reviews if Review entity exists
         dto.setRating(null); // TODO: Calculate from reviews if Review entity exists
         dto.setReviewCount(0); // TODO: Count reviews if Review entity exists
-        
+
         return dto;
     }
 
     private com.pickleball.app.dto.court.CourtSlotSearchResult mapToCourtSlotSearchResult(
             Court court, com.pickleball.app.entity.TimeSlot slot) {
         CourtGroup courtGroup = court.getCourtGroup();
-        
-        com.pickleball.app.dto.court.CourtSlotSearchResult result = 
-            com.pickleball.app.dto.court.CourtSlotSearchResult.builder()
+
+        com.pickleball.app.dto.court.CourtSlotSearchResult result = com.pickleball.app.dto.court.CourtSlotSearchResult
+                .builder()
                 // Court info
                 .courtId(court.getCourtId())
                 .courtName(court.getCourtName())
@@ -820,8 +912,9 @@ public class CourtServiceImpl implements CourtService {
                 .city(courtGroup.getCity())
                 .description(courtGroup.getDescription())
                 .images(courtGroup.getImages())
-                .phone(courtGroup.getManager() != null && courtGroup.getManager().getPhoneNumber() != null 
-                        ? courtGroup.getManager().getPhoneNumber() : null)
+                .phone(courtGroup.getManager() != null && courtGroup.getManager().getPhoneNumber() != null
+                        ? courtGroup.getManager().getPhoneNumber()
+                        : null)
                 // Amenities
                 .amenities(serviceRepository.findByCourtGroup(courtGroup).stream()
                         .filter(s -> s.getStatus() == ServiceStatus.AVAILABLE)
@@ -839,7 +932,7 @@ public class CourtServiceImpl implements CourtService {
                 .isLocked(false) // Will be set later
                 .lockedByUserId(null) // Will be set later
                 .build();
-        
+
         return result;
     }
 
@@ -900,6 +993,24 @@ public class CourtServiceImpl implements CourtService {
     }
 
     @Override
+    @Transactional
+    public List<Long> uploadCourtGroupImages(Long courtGroupId,
+            List<org.springframework.web.multipart.MultipartFile> files) {
+        List<Long> allImageIds = new java.util.ArrayList<>();
+        if (files != null && !files.isEmpty()) {
+            for (org.springframework.web.multipart.MultipartFile file : files) {
+                allImageIds.addAll(uploadCourtGroupImage(courtGroupId, file));
+            }
+        }
+        // Return latest list of IDs
+        CourtGroup group = countGroupRepository.findById(courtGroupId)
+                .orElseThrow(() -> new RuntimeException("Court Group not found"));
+        return courtGroupImageRepository.findByCourtGroupOrderBySortOrderAscImageIdAsc(group).stream()
+                .map(CourtGroupImage::getImageId)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<Long> uploadCourtImage(Long courtId, MultipartFile file) {
         Court court = courtRepository.findById(courtId)
                 .orElseThrow(() -> new RuntimeException("Court not found"));
@@ -928,6 +1039,23 @@ public class CourtServiceImpl implements CourtService {
 
         return courtImageRepository
                 .findByCourtOrderBySortOrderAscImageIdAsc(court).stream()
+                .map(CourtImage::getImageId)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public List<Long> uploadCourtImages(Long courtId, List<org.springframework.web.multipart.MultipartFile> files) {
+        List<Long> allImageIds = new java.util.ArrayList<>();
+        if (files != null && !files.isEmpty()) {
+            for (org.springframework.web.multipart.MultipartFile file : files) {
+                allImageIds.addAll(uploadCourtImage(courtId, file));
+            }
+        }
+        // Return latest list of IDs
+        Court court = courtRepository.findById(courtId)
+                .orElseThrow(() -> new RuntimeException("Court not found"));
+        return courtImageRepository.findByCourtOrderBySortOrderAscImageIdAsc(court).stream()
                 .map(CourtImage::getImageId)
                 .collect(Collectors.toList());
     }
@@ -989,7 +1117,8 @@ public class CourtServiceImpl implements CourtService {
     }
 
     /**
-     * Normalize time format từ "H:mm" sang "HH:mm" để LocalTime.parse() có thể parse được
+     * Normalize time format từ "H:mm" sang "HH:mm" để LocalTime.parse() có thể
+     * parse được
      * Ví dụ: "5:00" -> "05:00", "9:30" -> "09:30"
      */
     private String normalizeTimeFormat(String time) {
